@@ -9,7 +9,7 @@ module.exports = {
       watch: false,
       env: {
         NODE_ENV: 'production',
-        DB_NAME: 'banco-horas',        // força o nome do banco
+        DB_NAME: 'geral',        // força o nome do banco
         DB_USER: 'webadmin',
         DB_PASS: 'advah2011',
         DB_HOST: '127.0.0.1'
