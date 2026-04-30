@@ -1,12 +1,24 @@
 import AuditoriaRepository, { AuditoriaFiltros } from '../Repositories/AuditoriaRepository';
 import { AuditoriaCreationAttributes } from '../Models/Auditoria';
 import AppError from '../errors/AppError';
+import dayjs from 'dayjs';
 
 export interface GetAuditoriaParams {
   data_inicio: string;
   data_fim: string;
   modulo?: string;
   usuario?: string;
+}
+
+export interface GetAllParams {
+  dataInicio: string;
+  dataFim: string;
+  autor: string;
+  modulo?: string;
+  livre?: string;
+  draw?: string;
+  start?: string;
+  length?: string;
 }
 
 class AuditoriaService {
@@ -71,6 +83,54 @@ class AuditoriaService {
     };
 
     return this.repository.findByFiltros(filtros);
+  }
+
+  async getAll(params: GetAllParams) {
+    const { dataInicio: dataInicioStr, dataFim: dataFimStr, autor, modulo, livre, draw = '0', start = '0', length = '50' } = params;
+
+    if (!dataInicioStr || !dataFimStr || !autor) {
+      throw new AppError('Os campos dataInicio, dataFim e autor são obrigatórios.');
+    }
+
+    const dataInicio = new Date(dataInicioStr);
+    const dataFim = new Date(dataFimStr);
+    dataFim.setHours(23, 59, 59, 999);
+
+    if (isNaN(dataInicio.getTime()) || isNaN(dataFim.getTime())) {
+      throw new AppError('Formato de data inválido. Use o formato YYYY-MM-DD.');
+    }
+
+    if (dataInicio > dataFim) {
+      throw new AppError('A data inicial não pode ser maior que a data final.');
+    }
+
+    const moduloFiltro = modulo && modulo.toLowerCase() !== 'todos' ? modulo : undefined;
+
+    const { count, rows } = await this.repository.findForDatatable({
+      dataInicio,
+      dataFim,
+      autor,
+      livre,      
+      modulo: moduloFiltro,
+      offset: Number(start),
+      limit: Number(length),
+    });
+
+    const data = rows.map((auditoria) => ({
+      id: auditoria.id,
+      autor: auditoria.autor,
+      data: dayjs(auditoria.created_at).format('DD-MM-YYYY HH:mm:ss'),
+      ip: auditoria.ip,
+      modulo: auditoria.modulo,
+      descricao: auditoria.descricao,
+    }));
+
+    return {
+      draw: Number(draw),
+      recordsTotal: count,
+      recordsFiltered: count,
+      data,
+    };
   }
 }
 

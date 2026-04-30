@@ -8,6 +8,7 @@ class AuditoriaController {
     this.service = new AuditoriaService();
     this.store = this.store.bind(this);
     this.index = this.index.bind(this);
+    this.datatable = this.datatable.bind(this);
   }
 
   async store(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -24,6 +25,16 @@ class AuditoriaController {
       const { data_inicio, data_fim, modulo, usuario } = req.query as Record<string, string>;
       const auditorias = await this.service.getAuditoria({ data_inicio, data_fim, modulo, usuario });
       res.status(200).json(auditorias);
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  async datatable(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { dataInicio, dataFim, autor, modulo, livre, draw, start, length } = req.query as Record<string, string>;
+      const result = await this.service.getAll({ dataInicio, dataFim, autor, modulo, livre, draw, start, length });
+      res.status(200).json(result);
     } catch (err) {
       next(err);
     }

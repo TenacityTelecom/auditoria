@@ -7,6 +7,7 @@ jest.mock('../../../src/Services/AuditoriaService');
 
 const mockStore = AuditoriaService.prototype.store as jest.Mock;
 const mockGetAuditoria = AuditoriaService.prototype.getAuditoria as jest.Mock;
+const mockGetAll = AuditoriaService.prototype.getAll as jest.Mock;
 
 describe('AuditoriaController', () => {
   let controller: AuditoriaController;
@@ -126,6 +127,106 @@ describe('AuditoriaController.index', () => {
     const req = { query: { data_inicio: '', data_fim: '' } } as unknown as Request;
 
     await controller.index(req, res as Response, next as NextFunction);
+
+    expect(next).toHaveBeenCalledWith(error);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+});
+
+describe('AuditoriaController.datatable', () => {
+  let controller: AuditoriaController;
+  let res: Partial<Response>;
+  let next: jest.Mock;
+
+  const datatableResult = {
+    draw: 1,
+    recordsTotal: 1,
+    recordsFiltered: 1,
+    data: [
+      {
+        id: 1,
+        autor: '124142@gmail.com',
+        data: '28-04-2026 14:30:00',
+        ip: '192.168.1.1',
+        modulo: 'usuarios',
+        descricao: 'Login realizado',
+      },
+    ],
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    controller = new AuditoriaController();
+    res = {
+      status: jest.fn().mockReturnThis(),
+      json: jest.fn().mockReturnThis(),
+    };
+    next = jest.fn();
+  });
+
+  it('deve retornar 200 com resposta no formato DataTables', async () => {
+    mockGetAll.mockResolvedValueOnce(datatableResult);
+
+    const req = {
+      query: { dataInicio: '28/04/2026', dataFim: '28/04/2026', autor: '124142@gmail.com', modulo: 'todos' },
+    } as unknown as Request;
+
+    await controller.datatable(req, res as Response, next as NextFunction);
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json).toHaveBeenCalledWith(datatableResult);
+    expect(next).not.toHaveBeenCalled();
+  });
+
+  it('deve repassar todos os query params ao service', async () => {
+    mockGetAll.mockResolvedValueOnce(datatableResult);
+
+    const req = {
+      query: {
+        dataInicio: '28/04/2026',
+        dataFim: '28/04/2026',
+        autor: '124142@gmail.com',
+        modulo: 'usuarios',
+        draw: '2',
+        start: '10',
+        length: '25',
+      },
+    } as unknown as Request;
+
+    await controller.datatable(req, res as Response, next as NextFunction);
+
+    expect(mockGetAll).toHaveBeenCalledWith({
+      dataInicio: '28/04/2026',
+      dataFim: '28/04/2026',
+      autor: '124142@gmail.com',
+      modulo: 'usuarios',
+      draw: '2',
+      start: '10',
+      length: '25',
+    });
+  });
+
+  it('deve chamar next com AppError quando o service lança AppError', async () => {
+    const error = new AppError('Os campos dataInicio, dataFim e autor são obrigatórios.');
+    mockGetAll.mockRejectedValueOnce(error);
+
+    const req = { query: { dataInicio: '', dataFim: '', autor: '' } } as unknown as Request;
+
+    await controller.datatable(req, res as Response, next as NextFunction);
+
+    expect(next).toHaveBeenCalledWith(error);
+    expect(res.status).not.toHaveBeenCalled();
+  });
+
+  it('deve chamar next com erro genérico em falha inesperada', async () => {
+    const error = new Error('DB timeout');
+    mockGetAll.mockRejectedValueOnce(error);
+
+    const req = {
+      query: { dataInicio: '28/04/2026', dataFim: '28/04/2026', autor: '124142@gmail.com' },
+    } as unknown as Request;
+
+    await controller.datatable(req, res as Response, next as NextFunction);
 
     expect(next).toHaveBeenCalledWith(error);
     expect(res.status).not.toHaveBeenCalled();

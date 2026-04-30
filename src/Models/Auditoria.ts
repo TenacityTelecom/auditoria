@@ -69,6 +69,23 @@ Auditoria.init(
     timestamps: true,
     createdAt: 'created_at',
     updatedAt: 'updated_at',
+    indexes: [
+      // Consultas por intervalo de datas (filtro principal + ORDER BY created_at DESC)
+      {
+        name: 'idx_auditorias_created_at',
+        fields: ['created_at'],
+      },
+      // Consultas com filtro por módulo + intervalo de datas
+      {
+        name: 'idx_auditorias_modulo_created_at',
+        fields: ['modulo', 'created_at'],
+      },
+      // Consultas com filtro por autor + intervalo de datas
+      {
+        name: 'idx_auditorias_autor_created_at',
+        fields: ['autor', 'created_at'],
+      },
+    ],
   },
 );
 
