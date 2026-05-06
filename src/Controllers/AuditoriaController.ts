@@ -13,6 +13,7 @@ class AuditoriaController {
 
   async store(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      console.log('Store auditoria:', req.body);
       const auditoria = await this.service.store(req.body);
       res.status(201).json(auditoria);
     } catch (err) {
