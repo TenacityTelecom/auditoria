@@ -106,10 +106,21 @@ class AuditoriaRepository {
 
     return Auditoria.findAndCountAll({
       where,
+      // Projeta apenas as colunas necessárias para o datatable.
+      // Exclui `params` (TEXT com payload bruto) e `updated_at`, que não são exibidos
+      // na listagem, evitando transferência desnecessária de dados grandes do banco.
+      attributes: [
+        'id', 'ip', 'autor', 'modulo', 'acao', 'tela',
+        'metodo', 'uri', 'http_status', 'sucesso', 'recurso_id',
+        'descricao', 'created_at',
+      ],
       order: [['created_at', 'DESC']],
       offset: filtros.offset,
       limit: filtros.limit,
-      logging: (sql) => console.log('[findForDatatable] SQL:', sql),
+      // Log de SQL ativo apenas em desenvolvimento para evitar overhead em produção
+      logging: process.env.NODE_ENV !== 'production'
+        ? (sql: string) => console.log('[findForDatatable] SQL:', sql)
+        : false,
     });
   }
 }

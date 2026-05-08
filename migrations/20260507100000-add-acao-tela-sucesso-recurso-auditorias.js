@@ -7,6 +7,7 @@ module.exports = {
       allowNull: true,
       defaultValue: null,
       after: 'params',
+      comment: 'Verbo de negócio da ação realizada (ex.: Acessou, Editou, Atualizou, Deletou, Criou).',
     });
 
     await queryInterface.addColumn('auditorias', 'tela', {
@@ -14,6 +15,7 @@ module.exports = {
       allowNull: true,
       defaultValue: null,
       after: 'acao',
+      comment: 'Nome legível da tela ou rota acessada (ex.: omnichannel / fila / editar). Usado em relatórios.',
     });
 
     await queryInterface.addColumn('auditorias', 'sucesso', {
@@ -21,6 +23,7 @@ module.exports = {
       allowNull: true,
       defaultValue: null,
       after: 'tela',
+      comment: 'Resultado da operação: true = sucesso, false = falha, NULL = evento de payload legado.',
     });
 
     await queryInterface.addColumn('auditorias', 'recurso_id', {
@@ -28,6 +31,7 @@ module.exports = {
       allowNull: true,
       defaultValue: null,
       after: 'sucesso',
+      comment: 'Identificador do recurso afetado pela ação (ID numérico, UUID ou slug codificado).',
     });
 
     await queryInterface.addIndex('auditorias', ['acao'], {
@@ -49,3 +53,4 @@ module.exports = {
     await queryInterface.removeColumn('auditorias', 'recurso_id');
   },
 };
+

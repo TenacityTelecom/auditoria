@@ -21,3 +21,4 @@ module.exports = {
     await queryInterface.removeIndex('auditorias', 'idx_auditorias_autor_created_at');
   },
 };
+
