@@ -9,12 +9,20 @@ export interface AuditoriaAttributes {
   descricao: string;
   dispositivo: string;
   navegador: string;
+  metodo?: string | null;
+  uri?: string | null;
+  http_status?: number | null;
+  params?: string | null;
+  acao?: string | null;
+  tela?: string | null;
+  sucesso?: boolean | null;
+  recurso_id?: string | null;
   created_at?: Date;
   updated_at?: Date;
 }
 
 export interface AuditoriaCreationAttributes
-  extends Optional<AuditoriaAttributes, 'id' | 'created_at' | 'updated_at'> {}
+  extends Optional<AuditoriaAttributes, 'id' | 'created_at' | 'updated_at' | 'metodo' | 'uri' | 'http_status' | 'params' | 'acao' | 'tela' | 'sucesso' | 'recurso_id'> {}
 
 class Auditoria
   extends Model<AuditoriaAttributes, AuditoriaCreationAttributes>
@@ -27,6 +35,14 @@ class Auditoria
   public descricao!: string;
   public dispositivo!: string;
   public navegador!: string;
+  public metodo!: string | null;
+  public uri!: string | null;
+  public http_status!: number | null;
+  public params!: string | null;
+  public acao!: string | null;
+  public tela!: string | null;
+  public sucesso!: boolean | null;
+  public recurso_id!: string | null;
   public created_at!: Date;
   public updated_at!: Date;
 }
@@ -61,6 +77,38 @@ Auditoria.init(
     navegador: {
       type: DataTypes.STRING(255),
       allowNull: false,
+    },
+    metodo: {
+      type: DataTypes.STRING(10),
+      allowNull: true,
+    },
+    uri: {
+      type: DataTypes.STRING(1000),
+      allowNull: true,
+    },
+    http_status: {
+      type: DataTypes.SMALLINT.UNSIGNED,
+      allowNull: true,
+    },
+    params: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+    },
+    acao: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    tela: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
+    },
+    sucesso: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+    },
+    recurso_id: {
+      type: DataTypes.STRING(255),
+      allowNull: true,
     },
   },
   {

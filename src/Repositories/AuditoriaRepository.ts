@@ -14,6 +14,10 @@ export interface DatatableFiltros {
   autor: string;
   livre?: string;
   modulo?: string;
+  metodo?: string;
+  http_status?: number;
+  acao?: string;
+  sucesso?: boolean;
   offset: number;
   limit: number;
 }
@@ -21,6 +25,27 @@ export interface DatatableFiltros {
 class AuditoriaRepository {
   async create(data: AuditoriaCreationAttributes): Promise<Auditoria> {
     return Auditoria.create(data);
+  }
+
+  async findRecentDuplicate(
+    ip: string,
+    autor: string,
+    modulo: string,
+    metodo: string,
+    uri: string,
+    janelaSegundos: number,
+  ): Promise<Auditoria | null> {
+    const desde = new Date(Date.now() - janelaSegundos * 1000);
+    return Auditoria.findOne({
+      where: {
+        ip,
+        autor,
+        modulo,
+        metodo,
+        uri,
+        created_at: { [Op.gte]: desde },
+      },
+    });
   }
 
   async findByFiltros(filtros: AuditoriaFiltros): Promise<Auditoria[]> {
@@ -56,8 +81,27 @@ class AuditoriaRepository {
       where.modulo = { [Op.like]: `%${filtros.modulo}%` };
     }
 
+    if (filtros.metodo) {
+      where.metodo = filtros.metodo;
+    }
+
+    if (filtros.http_status) {
+      where.http_status = filtros.http_status;
+    }
+
+    if (filtros.acao) {
+      where.acao = filtros.acao;
+    }
+
+    if (filtros.sucesso != null) {
+      where.sucesso = filtros.sucesso;
+    }
+
     if (filtros.livre && filtros.livre.length > 0) {
-      where.descricao = { [Op.like]: `%${filtros.livre}%` };
+      where[Op.or as any] = [
+        { descricao: { [Op.like]: `%${filtros.livre}%` } },
+        { uri: { [Op.like]: `%${filtros.livre}%` } },
+      ];
     }
 
     return Auditoria.findAndCountAll({

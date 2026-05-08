@@ -37,6 +37,41 @@ describe('AuditoriaRepository', () => {
   });
 });
 
+describe('AuditoriaRepository.findRecentDuplicate', () => {
+  let repository: AuditoriaRepository;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    repository = new AuditoriaRepository();
+  });
+
+  it('deve retornar null quando não há duplicata', async () => {
+    (Auditoria.findOne as jest.Mock).mockResolvedValueOnce(null);
+
+    const result = await repository.findRecentDuplicate('1.2.3.4', 'joao', 'usuarios', 'GET', 'usuarios/lista', 10);
+
+    expect(result).toBeNull();
+    expect(Auditoria.findOne).toHaveBeenCalledTimes(1);
+  });
+
+  it('deve retornar o registro existente quando há duplicata', async () => {
+    const existente = { id: 10, ip: '1.2.3.4', autor: 'joao', modulo: 'usuarios', metodo: 'GET', uri: 'usuarios/lista' };
+    (Auditoria.findOne as jest.Mock).mockResolvedValueOnce(existente);
+
+    const result = await repository.findRecentDuplicate('1.2.3.4', 'joao', 'usuarios', 'GET', 'usuarios/lista', 10);
+
+    expect(result).toEqual(existente);
+  });
+
+  it('deve propagar erro lançado pelo Sequelize', async () => {
+    (Auditoria.findOne as jest.Mock).mockRejectedValueOnce(new Error('DB Error'));
+
+    await expect(
+      repository.findRecentDuplicate('1.2.3.4', 'joao', 'usuarios', 'GET', 'usuarios/lista', 10),
+    ).rejects.toThrow('DB Error');
+  });
+});
+
 describe('AuditoriaRepository.findForDatatable', () => {
   let repository: AuditoriaRepository;
 
@@ -104,5 +139,69 @@ describe('AuditoriaRepository.findForDatatable', () => {
     (Auditoria.findAndCountAll as jest.Mock).mockRejectedValueOnce(new Error('Sequelize error'));
 
     await expect(repository.findForDatatable(filtrosBase)).rejects.toThrow('Sequelize error');
+  });
+
+  it('deve incluir filtro de metodo quando informado', async () => {
+    (Auditoria.findAndCountAll as jest.Mock).mockResolvedValueOnce({ count: 0, rows: [] });
+
+    await repository.findForDatatable({ ...filtrosBase, metodo: 'POST' });
+
+    expect(Auditoria.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ metodo: 'POST' }),
+      }),
+    );
+  });
+
+  it('deve incluir filtro de http_status quando informado', async () => {
+    (Auditoria.findAndCountAll as jest.Mock).mockResolvedValueOnce({ count: 0, rows: [] });
+
+    await repository.findForDatatable({ ...filtrosBase, http_status: 500 });
+
+    expect(Auditoria.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ http_status: 500 }),
+      }),
+    );
+  });
+
+  it('deve incluir filtro de acao quando informado', async () => {
+    (Auditoria.findAndCountAll as jest.Mock).mockResolvedValueOnce({ count: 0, rows: [] });
+
+    await repository.findForDatatable({ ...filtrosBase, acao: 'Editou' });
+
+    expect(Auditoria.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ acao: 'Editou' }),
+      }),
+    );
+  });
+
+  it('deve incluir filtro de sucesso=false quando informado', async () => {
+    (Auditoria.findAndCountAll as jest.Mock).mockResolvedValueOnce({ count: 0, rows: [] });
+
+    await repository.findForDatatable({ ...filtrosBase, sucesso: false });
+
+    expect(Auditoria.findAndCountAll).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ sucesso: false }),
+      }),
+    );
+  });
+
+  it('deve buscar livre também no campo uri', async () => {
+    (Auditoria.findAndCountAll as jest.Mock).mockResolvedValueOnce({ count: 0, rows: [] });
+
+    await repository.findForDatatable({ ...filtrosBase, livre: 'omnichannel' });
+
+    const call = (Auditoria.findAndCountAll as jest.Mock).mock.calls[0][0];
+    const orCondition = call.where[Symbol.for('or')];
+    expect(Array.isArray(orCondition)).toBe(true);
+    expect(orCondition).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ descricao: expect.anything() }),
+        expect.objectContaining({ uri: expect.anything() }),
+      ]),
+    );
   });
 });

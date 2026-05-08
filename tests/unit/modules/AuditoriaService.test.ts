@@ -5,6 +5,7 @@ import AppError from '../../../src/errors/AppError';
 jest.mock('../../../src/Repositories/AuditoriaRepository');
 
 const mockCreate = AuditoriaRepository.prototype.create as jest.Mock;
+const mockFindRecentDuplicate = AuditoriaRepository.prototype.findRecentDuplicate as jest.Mock;
 const mockFindByFiltros = AuditoriaRepository.prototype.findByFiltros as jest.Mock;
 const mockFindForDatatable = AuditoriaRepository.prototype.findForDatatable as jest.Mock;
 
@@ -31,7 +32,7 @@ describe('AuditoriaService', () => {
 
     const result = await service.store(validData);
 
-    expect(mockCreate).toHaveBeenCalledWith({ ...validData, modulo: validData.modulo.toLowerCase() });
+    expect(mockCreate).toHaveBeenCalledWith(expect.objectContaining({ ...validData, modulo: validData.modulo.toLowerCase() }));
     expect(result).toEqual(created);
   });
 
@@ -78,6 +79,92 @@ describe('AuditoriaService', () => {
     mockCreate.mockRejectedValueOnce(new Error('DB Error'));
 
     await expect(service.store(validData)).rejects.toThrow('DB Error');
+  });
+
+  it('deve extrair metodo, uri, http_status, acao, tela, sucesso e recurso_id quando descricao é JSON', async () => {
+    const descricaoJson = JSON.stringify({ acao: 'Acessou', tela: 'omnichannel / fila', metodo: 'GET', uri: 'omnichannel/fila', status: 200, sucesso: true });
+    const dados = { ...validData, descricao: descricaoJson };
+    mockFindRecentDuplicate.mockResolvedValueOnce(null);
+    mockCreate.mockResolvedValueOnce({ id: 1, ...dados });
+
+    await service.store(dados);
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metodo: 'GET',
+        uri: 'omnichannel/fila',
+        http_status: 200,
+        acao: 'Acessou',
+        tela: 'omnichannel / fila',
+        sucesso: true,
+      }),
+    );
+  });
+
+  it('deve extrair params quando descricao JSON contém payload', async () => {
+    const descricaoJson = JSON.stringify({ acao: 'Atualizou', metodo: 'POST', uri: 'usuarios/store', status: 302, sucesso: true, recurso_id: '42', payload: { nome: 'João' } });
+    const dados = { ...validData, descricao: descricaoJson };
+    mockCreate.mockResolvedValueOnce({ id: 1, ...dados });
+
+    await service.store(dados);
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metodo: 'POST',
+        acao: 'Atualizou',
+        recurso_id: '42',
+        params: JSON.stringify({ nome: 'João' }),
+      }),
+    );
+  });
+
+  it('não deve falhar quando descricao é texto simples (não JSON)', async () => {
+    mockCreate.mockResolvedValueOnce({ id: 1, ...validData });
+
+    await expect(service.store(validData)).resolves.toBeDefined();
+
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        metodo: undefined,
+        uri: undefined,
+        http_status: undefined,
+      }),
+    );
+  });
+
+  it('deve retornar o registro existente sem criar novo quando GET duplicado na janela', async () => {
+    const descricaoJson = JSON.stringify({ acao: 'Acessou', metodo: 'GET', uri: 'omnichannel/inicio', status: 200, sucesso: true });
+    const dados = { ...validData, descricao: descricaoJson };
+    const existente = { id: 99, ...dados };
+    mockFindRecentDuplicate.mockResolvedValueOnce(existente);
+
+    const result = await service.store(dados);
+
+    expect(mockFindRecentDuplicate).toHaveBeenCalled();
+    expect(mockCreate).not.toHaveBeenCalled();
+    expect(result).toEqual(existente);
+  });
+
+  it('deve chamar repository.create normalmente quando não há duplicata GET', async () => {
+    const descricaoJson = JSON.stringify({ acao: 'Acessou', metodo: 'GET', uri: 'omnichannel/inicio', status: 200, sucesso: true });
+    const dados = { ...validData, descricao: descricaoJson };
+    mockFindRecentDuplicate.mockResolvedValueOnce(null);
+    mockCreate.mockResolvedValueOnce({ id: 1, ...dados });
+
+    await service.store(dados);
+
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('deve sempre criar registro para métodos mutantes (POST) sem verificar duplicata', async () => {
+    const descricaoJson = JSON.stringify({ acao: 'Atualizou', metodo: 'POST', uri: 'omnichannel/fila/update/1', status: 302, sucesso: true });
+    const dados = { ...validData, descricao: descricaoJson };
+    mockCreate.mockResolvedValueOnce({ id: 1, ...dados });
+
+    await service.store(dados);
+
+    expect(mockFindRecentDuplicate).not.toHaveBeenCalled();
+    expect(mockCreate).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -288,5 +375,75 @@ describe('AuditoriaService.getAll', () => {
     mockFindForDatatable.mockRejectedValueOnce(new Error('DB Error'));
 
     await expect(service.getAll(validParams)).rejects.toThrow('DB Error');
+  });
+
+  it('deve repassar metodo em maiúsculas ao repository', async () => {
+    mockFindForDatatable.mockResolvedValueOnce({ count: 0, rows: [] });
+
+    await service.getAll({ ...validParams, metodo: 'post' });
+
+    expect(mockFindForDatatable).toHaveBeenCalledWith(
+      expect.objectContaining({ metodo: 'POST' }),
+    );
+  });
+
+  it('deve ignorar metodo "TODOS" e não repassar ao repository', async () => {
+    mockFindForDatatable.mockResolvedValueOnce({ count: 0, rows: [] });
+
+    await service.getAll({ ...validParams, metodo: 'todos' });
+
+    expect(mockFindForDatatable).toHaveBeenCalledWith(
+      expect.objectContaining({ metodo: undefined }),
+    );
+  });
+
+  it('deve repassar http_status como número ao repository', async () => {
+    mockFindForDatatable.mockResolvedValueOnce({ count: 0, rows: [] });
+
+    await service.getAll({ ...validParams, http_status: '500' });
+
+    expect(mockFindForDatatable).toHaveBeenCalledWith(
+      expect.objectContaining({ http_status: 500 }),
+    );
+  });
+
+  it('deve repassar acao ao repository', async () => {
+    mockFindForDatatable.mockResolvedValueOnce({ count: 0, rows: [] });
+
+    await service.getAll({ ...validParams, acao: 'Editou' });
+
+    expect(mockFindForDatatable).toHaveBeenCalledWith(
+      expect.objectContaining({ acao: 'Editou' }),
+    );
+  });
+
+  it('deve ignorar acao "todos" e não repassar ao repository', async () => {
+    mockFindForDatatable.mockResolvedValueOnce({ count: 0, rows: [] });
+
+    await service.getAll({ ...validParams, acao: 'todos' });
+
+    expect(mockFindForDatatable).toHaveBeenCalledWith(
+      expect.objectContaining({ acao: undefined }),
+    );
+  });
+
+  it('deve repassar sucesso=true ao repository quando string "true"', async () => {
+    mockFindForDatatable.mockResolvedValueOnce({ count: 0, rows: [] });
+
+    await service.getAll({ ...validParams, sucesso: 'true' });
+
+    expect(mockFindForDatatable).toHaveBeenCalledWith(
+      expect.objectContaining({ sucesso: true }),
+    );
+  });
+
+  it('deve repassar sucesso=false ao repository quando string "false"', async () => {
+    mockFindForDatatable.mockResolvedValueOnce({ count: 0, rows: [] });
+
+    await service.getAll({ ...validParams, sucesso: 'false' });
+
+    expect(mockFindForDatatable).toHaveBeenCalledWith(
+      expect.objectContaining({ sucesso: false }),
+    );
   });
 });

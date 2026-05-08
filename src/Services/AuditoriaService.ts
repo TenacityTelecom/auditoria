@@ -16,6 +16,10 @@ export interface GetAllParams {
   autor: string;
   modulo?: string;
   livre?: string;
+  metodo?: string;
+  http_status?: string;
+  acao?: string;
+  sucesso?: string;
   draw?: string;
   start?: string;
   length?: string;
@@ -53,7 +57,49 @@ class AuditoriaService {
       throw new AppError('O campo dispositivo deve ser "desktop" ou "mobile".');
     }
 
-    return this.repository.create({ ip, modulo: modulo.toLowerCase(), autor, descricao, dispositivo, navegador });
+    let metodo: string | undefined;
+    let uri: string | undefined;
+    let http_status: number | undefined;
+    let params: string | undefined;
+    let acao: string | undefined;
+    let tela: string | undefined;
+    let sucesso: boolean | undefined;
+    let recurso_id: string | undefined;
+
+    try {
+      const parsed = JSON.parse(descricao);
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        metodo = parsed.metodo ? String(parsed.metodo).toUpperCase() : undefined;
+        uri = parsed.uri ? String(parsed.uri) : undefined;
+        http_status = parsed.status != null ? Number(parsed.status) : undefined;
+        acao = parsed.acao ? String(parsed.acao) : undefined;
+        tela = parsed.tela ? String(parsed.tela) : undefined;
+        sucesso = parsed.sucesso != null ? Boolean(parsed.sucesso) : undefined;
+        recurso_id = parsed.recurso_id != null ? String(parsed.recurso_id) : undefined;
+        if (parsed.payload != null) {
+          params = typeof parsed.payload === 'string' ? parsed.payload : JSON.stringify(parsed.payload);
+        }
+      }
+    } catch {
+      // descricao é texto simples, sem JSON estruturado
+    }
+
+    const moduloNormalizado = modulo.toLowerCase();
+
+    // Deduplicação: ignora GETs idênticos (mesmo ip+autor+modulo+metodo+uri) nos últimos 10 segundos.
+    // Mutações (POST, PUT, PATCH, DELETE) são sempre registradas.
+    const JANELA_DEDUP_SEGUNDOS = 10;
+    const metodoNormalizado = metodo ?? '';
+    if (metodoNormalizado === 'GET' && uri) {
+      const duplicado = await this.repository.findRecentDuplicate(
+        ip, autor, moduloNormalizado, metodoNormalizado, uri, JANELA_DEDUP_SEGUNDOS,
+      );
+      if (duplicado) {
+        return duplicado;
+      }
+    }
+
+    return this.repository.create({ ip, modulo: moduloNormalizado, autor, descricao, dispositivo, navegador, metodo, uri, http_status, params, acao, tela, sucesso, recurso_id });
   }
 
   async getAuditoria(params: GetAuditoriaParams) {
@@ -86,7 +132,7 @@ class AuditoriaService {
   }
 
   async getAll(params: GetAllParams) {
-    const { dataInicio: dataInicioStr, dataFim: dataFimStr, autor, modulo, livre, draw = '0', start = '0', length = '50' } = params;
+    const { dataInicio: dataInicioStr, dataFim: dataFimStr, autor, modulo, livre, metodo, http_status, acao, sucesso, draw = '0', start = '0', length = '50' } = params;
 
     if (!dataInicioStr || !dataFimStr || !autor) {
       throw new AppError('Os campos dataInicio, dataFim e autor são obrigatórios.');
@@ -112,6 +158,10 @@ class AuditoriaService {
       autor,
       livre,      
       modulo: moduloFiltro,
+      metodo: metodo && metodo.toUpperCase() !== 'TODOS' ? metodo.toUpperCase() : undefined,
+      http_status: http_status ? Number(http_status) : undefined,
+      acao: acao && acao.toLowerCase() !== 'todos' ? acao : undefined,
+      sucesso: sucesso != null && sucesso !== '' ? sucesso === 'true' : undefined,
       offset: Number(start),
       limit: Number(length),
     });
@@ -122,6 +172,13 @@ class AuditoriaService {
       data: dayjs(auditoria.created_at).format('DD-MM-YYYY HH:mm:ss'),
       ip: auditoria.ip,
       modulo: auditoria.modulo,
+      acao: auditoria.acao,
+      tela: auditoria.tela,
+      metodo: auditoria.metodo,
+      uri: auditoria.uri,
+      http_status: auditoria.http_status,
+      sucesso: auditoria.sucesso,
+      recurso_id: auditoria.recurso_id,
       descricao: auditoria.descricao,
     }));
 
