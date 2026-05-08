@@ -13,10 +13,10 @@ export interface DatatableFiltros {
   dataFim: Date;
   autor: string;
   livre?: string;
-  modulo?: string;
+  modulo?: string[];
   metodo?: string;
   http_status?: number;
-  acao?: string;
+  acao?: string[];
   sucesso?: boolean;
   offset: number;
   limit: number;
@@ -77,8 +77,22 @@ class AuditoriaRepository {
       autor: filtros.autor,
     };
     
-    if (filtros.modulo && filtros.modulo.toLowerCase() !== 'todos') {
-      where.modulo = { [Op.like]: `%${filtros.modulo}%` };
+    const temModulo = filtros.modulo && filtros.modulo.length > 0;
+    const temAcao = filtros.acao && filtros.acao.length > 0;
+    const andConditions: object[] = [];
+
+    if (temModulo && temAcao) {
+      // OR: registros de qualquer um dos módulos OU com qualquer uma das ações
+      andConditions.push({
+        [Op.or]: [
+          { modulo: { [Op.in]: filtros.modulo } },
+          { acao: { [Op.in]: filtros.acao } },
+        ],
+      });
+    } else if (temModulo) {
+      where.modulo = { [Op.in]: filtros.modulo } as any;
+    } else if (temAcao) {
+      where.acao = { [Op.in]: filtros.acao } as any;
     }
 
     if (filtros.metodo) {
@@ -89,19 +103,21 @@ class AuditoriaRepository {
       where.http_status = filtros.http_status;
     }
 
-    if (filtros.acao) {
-      where.acao = filtros.acao;
-    }
-
     if (filtros.sucesso != null) {
       where.sucesso = filtros.sucesso;
     }
 
     if (filtros.livre && filtros.livre.length > 0) {
-      where[Op.or as any] = [
-        { descricao: { [Op.like]: `%${filtros.livre}%` } },
-        { uri: { [Op.like]: `%${filtros.livre}%` } },
-      ];
+      andConditions.push({
+        [Op.or]: [
+          { descricao: { [Op.like]: `%${filtros.livre}%` } },
+          { uri: { [Op.like]: `%${filtros.livre}%` } },
+        ],
+      });
+    }
+
+    if (andConditions.length > 0) {
+      where[Op.and as any] = andConditions;
     }
 
     return Auditoria.findAndCountAll({

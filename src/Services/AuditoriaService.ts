@@ -18,7 +18,7 @@ export interface GetAllParams {
   livre?: string;
   metodo?: string;
   http_status?: string;
-  acao?: string;
+  acao?: string | string[];
   sucesso?: string;
   draw?: string;
   start?: string;
@@ -150,17 +150,26 @@ class AuditoriaService {
       throw new AppError('A data inicial não pode ser maior que a data final.');
     }
 
-    const moduloFiltro = modulo && modulo.toLowerCase() !== 'todos' ? modulo : undefined;
+    const modulosArray = modulo && modulo.toLowerCase() !== 'todos'
+      ? modulo.split(',').map(m => m.trim().toLowerCase()).filter(Boolean)
+      : undefined;
+
+    const acoesArray = (() => {
+      if (!acao) return undefined;
+      const arr = Array.isArray(acao) ? acao : [acao];
+      const filtrado = arr.filter(a => a.toLowerCase() !== 'todos');
+      return filtrado.length > 0 ? filtrado : undefined;
+    })();
 
     const { count, rows } = await this.repository.findForDatatable({
       dataInicio,
       dataFim,
       autor,
-      livre,      
-      modulo: moduloFiltro,
+      livre,
+      modulo: modulosArray,
       metodo: metodo && metodo.toUpperCase() !== 'TODOS' ? metodo.toUpperCase() : undefined,
       http_status: http_status ? Number(http_status) : undefined,
-      acao: acao && acao.toLowerCase() !== 'todos' ? acao : undefined,
+      acao: acoesArray,
       sucesso: sucesso != null && sucesso !== '' ? sucesso === 'true' : undefined,
       offset: Number(start),
       limit: Number(length),

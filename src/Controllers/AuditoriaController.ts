@@ -33,7 +33,8 @@ class AuditoriaController {
 
   async datatable(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { dataInicio, dataFim, autor, modulo, livre, metodo, http_status, acao, sucesso, draw, start, length } = req.query as Record<string, string>;
+      const { dataInicio, dataFim, autor, modulo, livre, metodo, http_status, sucesso, draw, start, length } = req.query as Record<string, string>;
+      const acao = req.query.acao as string | string[] | undefined;
       const result = await this.service.getAll({ dataInicio, dataFim, autor, modulo, livre, metodo, http_status, acao, sucesso, draw, start, length });
       res.status(200).json(result);
     } catch (err) {
