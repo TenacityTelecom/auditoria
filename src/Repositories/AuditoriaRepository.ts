@@ -133,7 +133,10 @@ class AuditoriaRepository {
       order: [['created_at', 'DESC']],
       offset: filtros.offset,
       limit: filtros.limit,
-      logging: (sql: string, timing?: number) => console.log('[findForDatatable] SQL:', sql, timing != null ? `(${timing}ms)` : ''),
+      // Log de SQL ativo apenas em desenvolvimento para evitar overhead em produção
+      logging: process.env.NODE_ENV !== 'production'
+        ? (sql: string, timing?: number) => console.log('[findForDatatable] SQL:', sql, timing != null ? `(${timing}ms)` : '')
+        : false,
     });
   }
 }

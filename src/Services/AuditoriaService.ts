@@ -2,6 +2,7 @@ import AuditoriaRepository, { AuditoriaFiltros } from '../Repositories/Auditoria
 import { AuditoriaCreationAttributes } from '../Models/Auditoria';
 import AppError from '../errors/AppError';
 import dayjs from 'dayjs';
+import sequelize from '../database/sequelize';
 
 export interface GetAuditoriaParams {
   data_inicio: string;
@@ -107,8 +108,10 @@ class AuditoriaService {
       throw new AppError('Os campos data_inicio e data_fim são obrigatórios.');
     }
 
-    const dataInicio = new Date(params.data_inicio);
-    const dataFim = new Date(params.data_fim);
+    const tz = (sequelize.options as { timezone?: string }).timezone || '-03:00';
+
+    const dataInicio = new Date(`${params.data_inicio}T00:00:00.000${tz}`);
+    const dataFim = new Date(`${params.data_fim}T23:59:59.999${tz}`);
 
     if (isNaN(dataInicio.getTime()) || isNaN(dataFim.getTime())) {
       throw new AppError('Formato de data inválido. Use o formato YYYY-MM-DD.');
@@ -117,9 +120,6 @@ class AuditoriaService {
     if (dataInicio > dataFim) {
       throw new AppError('data_inicio não pode ser maior que data_fim.');
     }
-
-    // Inclui todo o último dia até 23:59:59
-    dataFim.setHours(23, 59, 59, 999);
 
     const filtros: AuditoriaFiltros = {
       data_inicio: dataInicio,
@@ -138,15 +138,10 @@ class AuditoriaService {
       throw new AppError('Os campos dataInicio, dataFim e autor são obrigatórios.');
     }
 
-    const dataInicio = new Date(dataInicioStr);
-    const dataFim = new Date(dataFimStr);
-    dataFim.setHours(23, 59, 59, 999);
+    const tz = (sequelize.options as { timezone?: string }).timezone || '-03:00';
 
-    console.log('[DEBUG] dataInicioStr:', dataInicioStr);
-    console.log('[DEBUG] dataFimStr:', dataFimStr);
-    console.log('[DEBUG] dataInicio (Date):', dataInicio, 'ISO:', dataInicio.toISOString(), 'time:', dataInicio.getTime());
-    console.log('[DEBUG] dataFim (Date):', dataFim, 'ISO:', dataFim.toISOString(), 'time:', dataFim.getTime());
-    console.log('[DEBUG] autor:', autor);
+    const dataInicio = new Date(`${dataInicioStr}T00:00:00.000${tz}`);
+    const dataFim = new Date(`${dataFimStr}T23:59:59.999${tz}`);
 
     if (isNaN(dataInicio.getTime()) || isNaN(dataFim.getTime())) {
       throw new AppError('Formato de data inválido. Use o formato YYYY-MM-DD.');
