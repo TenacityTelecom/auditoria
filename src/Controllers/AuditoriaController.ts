@@ -25,6 +25,8 @@ class AuditoriaController {
     try {
       const { data_inicio, data_fim, modulo, usuario } = req.query as Record<string, string>;
       const auditorias = await this.service.getAuditoria({ data_inicio, data_fim, modulo, usuario });
+      console.log('Buscando auditorias com filtros:', { data_inicio, data_fim, modulo, usuario });
+      console.log('Auditorias encontradas:', auditorias.length);
       res.status(200).json(auditorias);
     } catch (err) {
       next(err);
