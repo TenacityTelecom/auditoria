@@ -142,6 +142,12 @@ class AuditoriaService {
     const dataFim = new Date(dataFimStr);
     dataFim.setHours(23, 59, 59, 999);
 
+    console.log('[DEBUG] dataInicioStr:', dataInicioStr);
+    console.log('[DEBUG] dataFimStr:', dataFimStr);
+    console.log('[DEBUG] dataInicio (Date):', dataInicio, 'ISO:', dataInicio.toISOString(), 'time:', dataInicio.getTime());
+    console.log('[DEBUG] dataFim (Date):', dataFim, 'ISO:', dataFim.toISOString(), 'time:', dataFim.getTime());
+    console.log('[DEBUG] autor:', autor);
+
     if (isNaN(dataInicio.getTime()) || isNaN(dataFim.getTime())) {
       throw new AppError('Formato de data inválido. Use o formato YYYY-MM-DD.');
     }
